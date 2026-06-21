@@ -1,22 +1,39 @@
 import 'package:flutter/material.dart';
-import 'screens/home_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-void main() {
-  runApp(const MyApp());
+import 'screens/home_screen.dart';
+import 'screens/login_screen.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  final prefs = await SharedPreferences.getInstance();
+
+  final token = prefs.getString('token');
+
+  runApp(MyApp(token: token));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final String? token;
+
+  const MyApp({super.key, this.token});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Antrian Kampus',
+
       theme: ThemeData(
-        primarySwatch: Colors.blue,
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+        useMaterial3: true,
       ),
-      home: const HomeScreen(),
+
+      // 🔥 INI LOGIC LOGIN / LOGOUT
+      home: (token != null && token!.isNotEmpty)
+          ? HomeScreen(token: token!)
+          : const LoginScreen(),
     );
   }
 }

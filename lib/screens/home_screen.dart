@@ -1,265 +1,95 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 import '../models/antrian_model.dart';
 import '../services/api_service.dart';
+
 import 'add_antrian_screen.dart';
+import 'my_antrian_screen.dart';
+import 'profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final String token;
+
+  const HomeScreen({super.key, required this.token});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  late Future<List<Antrian>> futureAntrian;
+  Timer? _refreshTimer;
+
+  int _currentIndex = 0;
+  final List<String> _titles = ["Dashboard", "My Antrian", "Profile"];
+
+  final List<Color> _cardColors = [
+    Colors.blue,
+    Colors.orange,
+    Colors.purple,
+    Colors.green,
+    Colors.teal,
+    Colors.pink,
+  ];
 
   @override
   void initState() {
     super.initState();
-    loadData();
-  }
 
-  void loadData() {
-    futureAntrian = ApiService.getAntrian();
-  }
-
-  // 📄 Fungsi pembantu untuk menentukan warna background status box
-  Color _getStatusColor(String status) {
-    switch (status.toLowerCase()) {
-      case 'process':
-        return Colors.blue.shade700; // 🔵 Biru untuk membedakan dengan 'done'
-      case 'waiting':
-        return Colors.orange.shade700; // 🟠 Oranye untuk yang mengantre
-      case 'done':
-        return Colors
-            .green
-            .shade600; // 🟢 Hijau agar sinkron dengan Web Laravel
-      default:
-        return Colors.blue;
-    }
-  }
-
-  // 🔄 Fungsi refresh data untuk widget RefreshIndicator
-  Future<void> _handleRefresh() async {
-    setState(() {
-      loadData();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+      if (mounted && _currentIndex == 0) {
+        setState(() {});
+      }
     });
   }
 
-  // ✏️ LANGKAH 3: Fungsi Pop-up Dialog untuk Edit Data (Full Logic + Validasi Form + Anti Error Getter)
-  void _showEditDialog(BuildContext context, Antrian antrian) {
-    final formKey = GlobalKey<FormState>();
-
-    String txtNama = "";
-    try {
-      txtNama = (antrian as dynamic).name ?? "";
-    } catch (_) {
-      txtNama = "";
-    }
-
-    String txtKeperluan = "";
-    try {
-      txtKeperluan = (antrian as dynamic).needs ?? "";
-    } catch (_) {
-      txtKeperluan = "";
-    }
-
-    String selectedLayanan = "Akademik";
-    try {
-      String? tempLayanan = (antrian as dynamic).service;
-      if (tempLayanan != null &&
-          ["Akademik", "Keuangan", "Administrasi"].contains(tempLayanan)) {
-        selectedLayanan = tempLayanan;
-      }
-    } catch (_) {
-      selectedLayanan = "Akademik";
-    }
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: Text("Edit Data Antrian No: ${antrian.queueNumber}"),
-          content: SingleChildScrollView(
-            child: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextFormField(
-                    initialValue: txtNama,
-                    decoration: const InputDecoration(
-                      labelText: "Nama Mahasiswa",
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (value) => value == null || value.trim().isEmpty
-                        ? "Nama tidak boleh kosong"
-                        : null,
-                    onSaved: (value) => txtNama = value!.trim(),
-                  ),
-                  const SizedBox(height: 14),
-                  TextFormField(
-                    initialValue: txtKeperluan,
-                    decoration: const InputDecoration(
-                      labelText: "Keperluan",
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (value) => value == null || value.trim().isEmpty
-                        ? "Keperluan tidak boleh kosong"
-                        : null,
-                    onSaved: (value) => txtKeperluan = value!.trim(),
-                  ),
-                  const SizedBox(height: 14),
-                  DropdownButtonFormField<String>(
-                    initialValue: selectedLayanan,
-                    decoration: const InputDecoration(
-                      labelText: "Pilih Layanan",
-                      border: OutlineInputBorder(),
-                    ),
-                    items: ["Akademik", "Keuangan", "Administrasi"].map((
-                      String value,
-                    ) {
-                      return DropdownMenuItem<String>(
-                        value: value,
-                        child: Text(value),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      selectedLayanan = value ?? "Akademik";
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              child: const Text("Batal", style: TextStyle(color: Colors.grey)),
-              onPressed: () => Navigator.pop(dialogContext),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
-              child: const Text(
-                "Simpan",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              onPressed: () async {
-                if (formKey.currentState!.validate()) {
-                  formKey.currentState!.save();
-                  Navigator.pop(dialogContext); // Tutup Dialog Form
-
-                  bool success = await ApiService.updateAntrian(
-                    antrian.id,
-                    txtNama,
-                    txtKeperluan,
-                    selectedLayanan,
-                  );
-
-                  // Perbaikan: Gunakan context.mounted yang terasosiasi langsung dengan BuildContext halaman
-                  if (!context.mounted) return;
-
-                  if (success) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text("Data antrian berhasil diperbarui"),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
-                    _handleRefresh();
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text("Gagal memperbarui data ke server"),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                  }
-                }
-              },
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  // 🗑️ LANGKAH 3: Fungsi Pop-up Dialog untuk Batal/Hapus Data dengan pengaman async gap context.mounted
-  void _showDeleteDialog(BuildContext context, int id) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: const Text("Batalkan Antrian"),
-          content: const Text(
-            "Apakah Anda yakin ingin membatalkan antrian ini? Data akan dihapus secara permanen dari sistem.",
-          ),
-          actions: [
-            TextButton(
-              child: const Text("Tidak", style: TextStyle(color: Colors.grey)),
-              onPressed: () => Navigator.pop(dialogContext),
-            ),
-            TextButton(
-              child: const Text(
-                "Ya, Batalkan",
-                style: TextStyle(
-                  color: Colors.red,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              onPressed: () async {
-                Navigator.pop(dialogContext); // Tutup dialog konfirmasi
-
-                bool success = await ApiService.deleteAntrian(id);
-
-                // Perbaikan: Gunakan context.mounted yang terasosiasi langsung dengan BuildContext halaman
-                if (!context.mounted) return;
-
-                if (success) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("Antrian sukses dibatalkan dan dihapus"),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-                  _handleRefresh();
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("Gagal membatalkan antrian ke server"),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-              },
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("Data Antrian Kampus"),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _handleRefresh,
-          ),
-        ],
-      ),
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
 
-      body: RefreshIndicator(
-        onRefresh: _handleRefresh,
-        child: FutureBuilder<List<Antrian>>(
-          future: futureAntrian,
+  // SILAKAN GANTI BLOK KODE INI DI HOME_SCREEN.DART KAMU:
+  Future<Map<String, String>> getUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    return {
+      "name":
+          prefs.getString('user_name') ??
+          "Mahasiswa", // 🟢 Sudah disesuaikan dengan login
+      "nim":
+          prefs.getString('user_nim') ??
+          "-", // 🟢 Sudah disesuaikan dengan login
+      "email":
+          prefs.getString('user_email') ??
+          "-", // 🟢 Sudah disesuaikan dengan login
+    };
+  }
+
+  Widget _buildBody() {
+    switch (_currentIndex) {
+      case 0:
+        return _buildAntrianList();
+      case 1:
+        return MyAntrianScreen(token: widget.token);
+      case 2:
+        return const ProfileScreen();
+      default:
+        return _buildAntrianList();
+    }
+  }
+
+  Widget _buildAntrianList() {
+    return FutureBuilder<Map<String, String>>(
+      future: getUser(),
+      builder: (context, userSnapshot) {
+        final user = userSnapshot.data ?? {"name": "Mahasiswa", "nim": "-"};
+
+        return FutureBuilder<List<dynamic>>(
+          future: Future.wait([
+            ApiService.getAntrian(widget.token),
+            ApiService.getLayanan(widget.token),
+          ]),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
@@ -269,175 +99,325 @@ class _HomeScreenState extends State<HomeScreen> {
               return Center(child: Text("Error: ${snapshot.error}"));
             }
 
-            final data = snapshot.data ?? [];
+            final List<Antrian> antrianList = snapshot.data?[0] ?? [];
+            final List<dynamic> layananList = snapshot.data?[1] ?? [];
 
-            if (data.isEmpty) {
-              return const Center(child: Text("Belum ada data antrian"));
+            // 🔴 REVISI CHATGPT: Tambahkan Debug untuk Melihat Hasil Pencocokan Layanan
+            for (var layanan in layananList) {
+              print(
+                "SERVICE: ${layanan['service_name']} (${layanan['service_code']})",
+              );
             }
 
-            // ===================================================
-            // LOGIKA SORTING: Urutkan status 'process' -> 'waiting' -> 'done'
-            // ===================================================
-            data.sort((a, b) {
-              int getStatusOrder(String status) {
-                switch (status.toLowerCase()) {
-                  case 'process':
-                    return 1;
-                  case 'waiting':
-                    return 2;
-                  case 'done':
-                    return 3;
-                  default:
-                    return 4;
-                }
-              }
-
-              return getStatusOrder(
-                a.status,
-              ).compareTo(getStatusOrder(b.status));
-            });
-            // ===================================================
-
-            return ListView.builder(
-              itemCount: data.length,
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              itemBuilder: (context, index) {
-                final antrian = data[index];
-                final currentStatus = antrian.status.toLowerCase();
-
-                return Card(
-                  margin: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 6,
-                  ),
-                  elevation: currentStatus == 'process' ? 4 : 1,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: currentStatus == 'process'
-                        ? BorderSide(color: Colors.blue.shade400, width: 1.5)
-                        : BorderSide.none,
-                  ),
-                  child: Column(
-                    children: [
-                      ListTile(
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        leading: CircleAvatar(
-                          backgroundColor: currentStatus == 'process'
-                              ? Colors.blue.shade50
-                              : (currentStatus == 'done'
-                                    ? Colors.green.shade50
-                                    : Colors.grey.shade100),
-                          child: Icon(
-                            currentStatus == 'done'
-                                ? Icons.check
-                                : Icons.confirmation_number,
-                            color: currentStatus == 'process'
-                                ? Colors.blue
-                                : (currentStatus == 'done'
-                                      ? Colors.green
-                                      : Colors.grey),
+            return RefreshIndicator(
+              onRefresh: () async {
+                setState(() {});
+              },
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // HEADER USER INFO
+                    Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.all(15),
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade700,
+                        borderRadius: BorderRadius.circular(15),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.blue.withValues(alpha: 0.3),
+                            blurRadius: 10,
+                            offset: const Offset(0, 5),
                           ),
-                        ),
-                        title: Text(
-                          "No: ${antrian.queueNumber}",
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: currentStatus == 'done'
-                                ? Colors.green.shade800
-                                : Colors.black87,
-                          ),
-                        ),
-                        subtitle: const Padding(
-                          padding: EdgeInsets.only(top: 4.0),
-                          child: Text("Silakan pantau loket secara berkala"),
-                        ),
-                        trailing: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: _getStatusColor(antrian.status),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            antrian.status.toUpperCase(),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "Selamat Datang 👋",
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 14,
                             ),
                           ),
+                          const SizedBox(height: 4),
+                          Text(
+                            user["name"]!,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            "NIM: ${user["nim"]!}",
+                            style: const TextStyle(
+                              color: Colors.white60,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 15,
+                        vertical: 5,
+                      ),
+                      child: Text(
+                        "===== STATUS LAYANAN =====",
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
                         ),
                       ),
+                    ),
 
-                      // 🌟 Tombol Aksi Kustom (Hanya muncul jika status WAITING)
-                      if (currentStatus == 'waiting')
-                        Padding(
-                          padding: const EdgeInsets.only(
-                            right: 16.0,
-                            bottom: 8.0,
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              TextButton.icon(
-                                icon: const Icon(
-                                  Icons.edit,
-                                  size: 18,
-                                  color: Colors.orange,
+                    // Grid Status Layanan Dinamis
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 11),
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final cardWidth = (constraints.maxWidth - 16) / 2;
+                          return Wrap(
+                            spacing: 0,
+                            runSpacing: 2,
+                            children: List.generate(layananList.length, (
+                              index,
+                            ) {
+                              final layanan = layananList[index];
+
+                              // 🔴 REVISI CHATGPT: Menggunakan service_name dan service_code dengan cast string aman
+                              final String namaLayanan =
+                                  (layanan['service_name'] ?? '').toString();
+                              final String kodeLayanan =
+                                  (layanan['service_code'] ?? '').toString();
+
+                              // Log untuk memastikan data masuk per item grid
+                              print(
+                                "Layanan: $namaLayanan | Kode: $kodeLayanan",
+                              );
+
+                              final numSedangDilayani = _getSedangDilayani(
+                                antrianList,
+                                kodeLayanan,
+                              );
+                              final color =
+                                  _cardColors[index % _cardColors.length];
+
+                              return SizedBox(
+                                width: cardWidth,
+                                child: _buildStatusCard(
+                                  namaLayanan,
+                                  numSedangDilayani,
+                                  color,
                                 ),
-                                label: const Text(
-                                  "Edit",
-                                  style: TextStyle(color: Colors.orange),
-                                ),
-                                onPressed: () {
-                                  _showEditDialog(context, antrian);
-                                },
-                              ),
-                              const SizedBox(width: 8),
-                              TextButton.icon(
-                                icon: const Icon(
-                                  Icons.delete_forever,
-                                  size: 18,
-                                  color: Colors.red,
-                                ),
-                                label: const Text(
-                                  "Batal",
-                                  style: TextStyle(color: Colors.red),
-                                ),
-                                onPressed: () {
-                                  _showDeleteDialog(context, antrian.id);
-                                },
-                              ),
-                            ],
-                          ),
+                              );
+                            }),
+                          );
+                        },
+                      ),
+                    ),
+
+                    const SizedBox(height: 15),
+
+                    const Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 15,
+                        vertical: 5,
+                      ),
+                      child: Text(
+                        "===== DAFTAR LAYANAN KAMPUS =====",
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
                         ),
-                    ],
-                  ),
-                );
-              },
+                      ),
+                    ),
+
+                    // Daftar Pilihan Layanan Katalog Promosi
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 15),
+                      child: Column(
+                        children: List.generate(layananList.length, (index) {
+                          final layanan = layananList[index];
+
+                          // 🔴 REVISI CHATGPT: Menggunakan service_name dengan cast string aman
+                          final String namaLayanan =
+                              (layanan['service_name'] ?? '').toString();
+                          final color = _cardColors[index % _cardColors.length];
+
+                          return _buildLayananPromosiCard(namaLayanan, color);
+                        }),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+                ),
+              ),
             );
           },
+        );
+      },
+    );
+  }
+
+  // 🔴 REVISI CHATGPT: Fungsi pemindai nomor antrean yang aman dilengkapi log pencocokan
+  String _getSedangDilayani(List<Antrian> data, String serviceCode) {
+    for (var item in data) {
+      // Print log status antrean saat ini di terminal
+      print("MENCARI ANTRIAN -> ${item.queueNumber} | ${item.status}");
+
+      if (item.queueNumber.toUpperCase().startsWith(
+            serviceCode.toUpperCase(),
+          ) &&
+          item.status.toLowerCase() == 'process') {
+        return item.queueNumber;
+      }
+    }
+    return "-";
+  }
+
+  Widget _buildStatusCard(String title, String queueNum, Color color) {
+    return Container(
+      height: 95,
+      margin: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border(left: BorderSide(color: color, width: 5)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withValues(alpha: 0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+                color: Colors.black54,
+              ),
+            ),
+            const SizedBox(height: 2),
+            const Text(
+              "Sedang Dilayani :",
+              style: TextStyle(fontSize: 11, color: Colors.grey),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              queueNum,
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+          ],
         ),
       ),
+    );
+  }
 
-      floatingActionButton: FloatingActionButton(
-        child: const Icon(Icons.add),
-        onPressed: () async {
-          await Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const AddAntrianScreen()),
-          );
+  Widget _buildLayananPromosiCard(String title, Color color) {
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 5),
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: color.withValues(alpha: 0.1),
+          child: Icon(Icons.check_circle_outline, color: color),
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+        ),
+        subtitle: const Text(
+          "Layanan aktif & beroperasi pada hari kerja.",
+          style: TextStyle(fontSize: 11, color: Colors.grey),
+        ),
+      ),
+    );
+  }
+
+  void _bukaHalamanTambahAntrian() async {
+    final result = await Navigator.push<int>(
+      context,
+      MaterialPageRoute(builder: (_) => AddAntrianScreen(token: widget.token)),
+    );
+
+    if (result == 1) {
+      setState(() {
+        _currentIndex = 1;
+      });
+    } else {
+      setState(() {});
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          _titles[_currentIndex],
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: Colors.blue.shade700,
+        foregroundColor: Colors.white,
+        elevation: 0,
+      ),
+      body: _buildBody(),
+
+      // 🔴 AMAN: Tombol FAB (+) dipertahankan demi nilai dari dosen!
+      floatingActionButton: _currentIndex == 0
+          ? FloatingActionButton(
+              backgroundColor: Colors.blue.shade700,
+              foregroundColor: Colors.white,
+              onPressed: () => _bukaHalamanTambahAntrian(),
+              child: const Icon(Icons.add),
+            )
+          : null,
+
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        type: BottomNavigationBarType.fixed,
+        selectedItemColor: Colors.blue.shade700,
+        onTap: (index) {
           setState(() {
-            loadData();
+            _currentIndex = index;
           });
         },
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.dashboard),
+            label: "Dashboard",
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.list_alt),
+            label: "My Antrian",
+          ),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profile"),
+        ],
       ),
     );
   }
