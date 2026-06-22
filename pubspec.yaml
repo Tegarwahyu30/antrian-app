@@ -40,6 +40,22 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  flutter_lints: ^3.0.0
+  
+  # 1. Di sini fungsinya sebagai nama package (sejajar dengan flutter_test)
+  flutter_launcher_icons: ^0.13.1
+
+# ----------------------------------------------------
+# Pastikan ada jarak atau ditaruh di paling bawah file
+# ----------------------------------------------------
+
+# 2. Di sini fungsinya sebagai konfigurasi gambar (Wajib di tepi paling kiri, tanpa spasi!)
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/LOGO MY ANTRIAN.png"
+  remove_alpha_ios: true
+
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is

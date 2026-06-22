@@ -19,7 +19,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  Timer? _refreshTimer;
+  // 🟢 REVISI: Timer 10 detik sudah dihapus dari sini
 
   int _currentIndex = 0;
   final List<String> _titles = ["Dashboard", "My Antrian", "Profile"];
@@ -36,33 +36,22 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-
-    _refreshTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
-      if (mounted && _currentIndex == 0) {
-        setState(() {});
-      }
-    });
+    // 🟢 REVISI: Logika Timer.periodic 10 detik sudah dibersihkan total dari sini
   }
 
   @override
   void dispose() {
-    _refreshTimer?.cancel();
+    // 🟢 REVISI: Pembersihan timer sudah dihapus agar tidak error berkelanjutan
     super.dispose();
   }
 
-  // SILAKAN GANTI BLOK KODE INI DI HOME_SCREEN.DART KAMU:
+  // MEMPERTAHANKAN BLOK KODE UNTUK AMBIL DATA USER
   Future<Map<String, String>> getUser() async {
     final prefs = await SharedPreferences.getInstance();
     return {
-      "name":
-          prefs.getString('user_name') ??
-          "Mahasiswa", // 🟢 Sudah disesuaikan dengan login
-      "nim":
-          prefs.getString('user_nim') ??
-          "-", // 🟢 Sudah disesuaikan dengan login
-      "email":
-          prefs.getString('user_email') ??
-          "-", // 🟢 Sudah disesuaikan dengan login
+      "name": prefs.getString('user_name') ?? "Mahasiswa",
+      "nim": prefs.getString('user_nim') ?? "-",
+      "email": prefs.getString('user_email') ?? "-",
     };
   }
 
@@ -102,13 +91,14 @@ class _HomeScreenState extends State<HomeScreen> {
             final List<Antrian> antrianList = snapshot.data?[0] ?? [];
             final List<dynamic> layananList = snapshot.data?[1] ?? [];
 
-            // 🔴 REVISI CHATGPT: Tambahkan Debug untuk Melihat Hasil Pencocokan Layanan
+            // Mempertahankan Debug Hasil Pencocokan Layanan
             for (var layanan in layananList) {
               print(
                 "SERVICE: ${layanan['service_name']} (${layanan['service_code']})",
               );
             }
 
+            // 🔥 SEKARANG HANYA MENGGUNAKAN MANUAL PULL-TO-REFRESH DI SINI
             return RefreshIndicator(
               onRefresh: () async {
                 setState(() {});
@@ -193,13 +183,12 @@ class _HomeScreenState extends State<HomeScreen> {
                             ) {
                               final layanan = layananList[index];
 
-                              // 🔴 REVISI CHATGPT: Menggunakan service_name dan service_code dengan cast string aman
                               final String namaLayanan =
                                   (layanan['service_name'] ?? '').toString();
                               final String kodeLayanan =
                                   (layanan['service_code'] ?? '').toString();
 
-                              // Log untuk memastikan data masuk per item grid
+                              // Log dipastikan tetap masuk per item grid
                               print(
                                 "Layanan: $namaLayanan | Kode: $kodeLayanan",
                               );
@@ -249,7 +238,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         children: List.generate(layananList.length, (index) {
                           final layanan = layananList[index];
 
-                          // 🔴 REVISI CHATGPT: Menggunakan service_name dengan cast string aman
                           final String namaLayanan =
                               (layanan['service_name'] ?? '').toString();
                           final color = _cardColors[index % _cardColors.length];
@@ -269,10 +257,9 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // 🔴 REVISI CHATGPT: Fungsi pemindai nomor antrean yang aman dilengkapi log pencocokan
+  // Fungsi pemindai nomor antrean tetap dipertahankan aman
   String _getSedangDilayani(List<Antrian> data, String serviceCode) {
     for (var item in data) {
-      // Print log status antrean saat ini di terminal
       print("MENCARI ANTRIAN -> ${item.queueNumber} | ${item.status}");
 
       if (item.queueNumber.toUpperCase().startsWith(
@@ -388,7 +375,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       body: _buildBody(),
 
-      // 🔴 AMAN: Tombol FAB (+) dipertahankan demi nilai dari dosen!
+      // Tombol FAB (+) Dipertahankan Utuh
       floatingActionButton: _currentIndex == 0
           ? FloatingActionButton(
               backgroundColor: Colors.blue.shade700,

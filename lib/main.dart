@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
+import 'screens/splash_screen.dart'; // 1. TAMBAHKAN IMPORT BARU INI
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,10 +31,9 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
       ),
 
-      // 🔥 INI LOGIC LOGIN / LOGOUT
-      home: (token != null && token!.isNotEmpty)
-          ? HomeScreen(token: token!)
-          : const LoginScreen(),
+      // 🔥 REVISI DI SINI: Jalur utama dialihkan ke SplashScreen
+      // dengan tetap membawa data token bawaan kamu
+      home: SplashScreen(token: token),
     );
   }
 }
